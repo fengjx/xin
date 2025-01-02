@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Hello Example",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/examples/hello/main.go",
+      "env": {},
+      "args": []
+    },
+    {
+      "name": "Debug Usage Example",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/examples/usage/main.go",
+      "env": {},
+      "args": []
+    },
+    {
+      "name": "Debug Tests",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${workspaceFolder}",
+      "env": {},
+      "args": ["-v"]
+    }
+  ],
+  "compounds": []
+}
