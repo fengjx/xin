@@ -15,5 +15,5 @@ func main() {
 		xin.WriteString(w, http.StatusOK, "Hello World!")
 	})
 	log.Println("Server starting on :8080...")
-	app.Run(":8080")
+	app.Run(":8080", true)
 }

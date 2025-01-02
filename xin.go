@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -27,7 +28,7 @@ type Xin struct {
 	router        *Mux               // 路由复用器
 	mtx           sync.Mutex         // 用于并发安全的读写锁
 	host          string             // 服务器主机地址
-	port          string             // 服务器端口
+	port          int                // 服务器端口
 	middlewares   []HTTPMiddleware   // 中间件
 	recoverHandle errs.RecoverHandle // panic 处理函数
 	started       bool               // 是否已关闭
@@ -46,31 +47,43 @@ func New() *Xin {
 	return x
 }
 
-// Run 启动HTTP服务器
-// address 参数格式为 "host:port"，例如 ":8080" 或 "localhost:8080"
-func (x *Xin) Run(address string) error {
-	x.mtx.Lock()
-
+func (x *Xin) init() {
 	// recover 中间件
 	x.router.Use(recoverer(x.recoverHandle))
 	// 添加中间件
 	x.router.Use(x.middlewares...)
+}
 
+// Run 启动HTTP服务器
+// sync 是否同步启动
+// address 参数格式为 "host:port"，例如 ":8080" 或 "192.168.1.100:8080"
+func (x *Xin) Run(address string, sync bool) error {
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", address, err)
 	}
+	return x.Serve(ln, sync)
+}
 
+// Serve 启动HTTP服务器
+// sync 是否同步启动
+func (x *Xin) Serve(ln net.Listener, sync bool) error {
+	x.mtx.Lock()
+	if x.started {
+		x.mtx.Unlock()
+		return nil
+	}
+	x.started = true
+	x.init()
 	la := ln.Addr().String()
 	host, port, _ := addr.ExtractHostPort(la)
 	x.host = host
-	x.port = port
+	x.port, _ = strconv.Atoi(port)
 
 	// 使用 halo 包的优雅关闭功能
 	halo.AddShutdownCallback(func() {
-		x.Shutdown(30 * time.Second)
+		x.Shutdown(60 * time.Second)
 	})
-	x.started = true
 	x.mtx.Unlock()
 	return x.httpServer.Serve(ln)
 }
@@ -201,9 +214,11 @@ func (x *Xin) StaticFS(pattern string, fs fs.FS) *Xin {
 	return x
 }
 
+// HostPort 获取服务器地址和端口
+func (x *Xin) HostPort() (host string, port int) {
+	return x.host, x.port
+}
+
 func (x *Xin) defaultRecoverHandle(err any, stack *errs.Stack) {
 	log.Printf("panic: %s %+v\r\n", err, stack)
 }
-
-// Map is a map of string to any.
-type Map map[string]any

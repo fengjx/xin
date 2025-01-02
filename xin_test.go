@@ -61,7 +61,7 @@ func TestXin(t *testing.T) {
 	errCh := make(chan error, 1)
 	go func() {
 		t.Logf("Server starting on %s...", addr)
-		if err := app.Run(addr); err != nil && err != http.ErrServerClosed {
+		if err := app.Run(addr, true); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 		}
 		close(errCh)

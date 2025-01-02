@@ -14,6 +14,9 @@ var (
 	xRealIP       = http.CanonicalHeaderKey("X-Real-IP")
 )
 
+// Map is a map of string to any.
+type Map map[string]any
+
 // GetRealIP 从 request 获取真实客户端ip
 func GetRealIP(r *http.Request) string {
 	var ip string

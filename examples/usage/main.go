@@ -65,5 +65,5 @@ func main() {
 
 	// 启动服务器
 	log.Println("Server starting on :8080...")
-	app.Run(":8080")
+	app.Run(":8080", true)
 }
