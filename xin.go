@@ -111,10 +111,9 @@ func (x *Xin) RecoverHandle(fn errs.RecoverHandle) *Xin {
 	return x
 }
 
-// Mux 获取路由复用器
-func (x *Xin) Mux(mux *Mux) *Xin {
-	x.router = mux
-	return x
+// Mux 获取路由
+func (x *Xin) Mux() *Mux {
+	return x.router
 }
 
 // Use 添加全局中间件
