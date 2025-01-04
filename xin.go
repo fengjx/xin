@@ -24,9 +24,9 @@ func SetDebug(debug bool) {
 
 // Xin 是核心Web服务器结构体，用于管理HTTP路由和服务器操作
 type Xin struct {
+	mtx           sync.Mutex         // 用于并发安全的读写锁
 	httpServer    *http.Server       // HTTP服务器实例
 	router        *Mux               // 路由复用器
-	mtx           sync.Mutex         // 用于并发安全的读写锁
 	host          string             // 服务器主机地址
 	port          int                // 服务器端口
 	middlewares   []HTTPMiddleware   // 中间件
@@ -37,17 +37,16 @@ type Xin struct {
 // New 创建一个新的Xin实例
 func New() *Xin {
 	x := &Xin{}
-	mux := NewMux()
-	httpServer := &http.Server{
-		Handler: mux,
-	}
-	x.router = mux
-	x.httpServer = httpServer
+	x.router = NewMux()
 	x.recoverHandle = x.defaultRecoverHandle
 	return x
 }
 
 func (x *Xin) init() {
+	httpServer := &http.Server{
+		Handler: x.router,
+	}
+	x.httpServer = httpServer
 	// recover 中间件
 	x.router.Use(recoverer(x.recoverHandle))
 	// 添加中间件
@@ -107,8 +106,14 @@ func (x *Xin) Shutdown(timeout time.Duration) error {
 }
 
 // Recover 设置 panic 处理函数
-func (x *Xin) Recover(fn errs.RecoverHandle) *Xin {
+func (x *Xin) RecoverHandle(fn errs.RecoverHandle) *Xin {
 	x.recoverHandle = fn
+	return x
+}
+
+// Mux 获取路由复用器
+func (x *Xin) Mux(mux *Mux) *Xin {
+	x.router = mux
 	return x
 }
 
@@ -119,23 +124,16 @@ func (x *Xin) Use(middlewares ...HTTPMiddleware) *Xin {
 	return x
 }
 
-// Mux 获取路由复用器
-func (x *Xin) Mux() *Mux {
-	return x.router
-}
-
-// Router 注册路由处理函数
-// fn 是一个接收路由复用器的函数，用于配置路由规则
-func (x *Xin) Router(fn func(r *Mux)) *Xin {
-	fn(x.router)
-	return x
+// Group 注册路由组
+func (x *Xin) Group(prefix string) *Mux {
+	return x.router.Group(prefix)
 }
 
 // Handle 注册一个处理特定模式的HTTP处理器
 // pattern 格式为 "[METHOD ][HOST]/[PATH]"
 // handler 为实现了http.Handler接口的处理器
 func (x *Xin) Handle(pattern string, handler http.Handler) *Xin {
-	x.router.Handle(pattern+"/", http.StripPrefix(pattern, handler))
+	x.router.Handle(pattern, handler)
 	return x
 }
 

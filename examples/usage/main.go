@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -39,20 +40,28 @@ func main() {
 		fmt.Fprintf(w, "get user endpoint %s", r.PathValue("id"))
 	})
 
-	mux := app.Mux()
+	app.POST("/api/json", func(w http.ResponseWriter, r *http.Request) {
+		req := &struct {
+			Name string `json:"name"`
+		}{}
+		if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		fmt.Fprintf(w, "create user endpoint %s", req.Name)
+	})
 
-	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
+	app.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Service is healthy")
 	})
 
-	mux.Sub("/api/v1", func(sub *xin.Mux) {
-		sub.HandleFunc("GET /foo", func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprintf(w, "foo v1")
-		})
+	g := app.Group("/api/v1")
+	g.HandleFunc("GET /foo", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "foo v1")
+	})
 
-		sub.HandleFunc("GET /bar", func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprintf(w, "bar v1")
-		})
+	g.HandleFunc("GET /bar", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "bar v1")
 	})
 
 	// 提供静态文件服务
