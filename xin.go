@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -23,11 +24,11 @@ func SetDebug(debug bool) {
 
 // Xin 是核心Web服务器结构体，用于管理HTTP路由和服务器操作
 type Xin struct {
+	mtx           sync.Mutex         // 用于并发安全的读写锁
 	httpServer    *http.Server       // HTTP服务器实例
 	router        *Mux               // 路由复用器
-	mtx           sync.Mutex         // 用于并发安全的读写锁
 	host          string             // 服务器主机地址
-	port          string             // 服务器端口
+	port          int                // 服务器端口
 	middlewares   []HTTPMiddleware   // 中间件
 	recoverHandle errs.RecoverHandle // panic 处理函数
 	started       bool               // 是否已关闭
@@ -36,41 +37,52 @@ type Xin struct {
 // New 创建一个新的Xin实例
 func New() *Xin {
 	x := &Xin{}
-	mux := NewMux()
-	httpServer := &http.Server{
-		Handler: mux,
-	}
-	x.router = mux
-	x.httpServer = httpServer
+	x.router = NewMux()
 	x.recoverHandle = x.defaultRecoverHandle
 	return x
 }
 
-// Run 启动HTTP服务器
-// address 参数格式为 "host:port"，例如 ":8080" 或 "localhost:8080"
-func (x *Xin) Run(address string) error {
-	x.mtx.Lock()
-
+func (x *Xin) init() {
+	httpServer := &http.Server{
+		Handler: x.router,
+	}
+	x.httpServer = httpServer
 	// recover 中间件
 	x.router.Use(recoverer(x.recoverHandle))
 	// 添加中间件
 	x.router.Use(x.middlewares...)
+}
 
+// Run 启动HTTP服务器
+// sync 是否同步启动
+// address 参数格式为 "host:port"，例如 ":8080" 或 "192.168.1.100:8080"
+func (x *Xin) Run(address string, sync bool) error {
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", address, err)
 	}
+	return x.Serve(ln, sync)
+}
 
+// Serve 启动HTTP服务器
+// sync 是否同步启动
+func (x *Xin) Serve(ln net.Listener, sync bool) error {
+	x.mtx.Lock()
+	if x.started {
+		x.mtx.Unlock()
+		return nil
+	}
+	x.started = true
+	x.init()
 	la := ln.Addr().String()
 	host, port, _ := addr.ExtractHostPort(la)
 	x.host = host
-	x.port = port
+	x.port, _ = strconv.Atoi(port)
 
 	// 使用 halo 包的优雅关闭功能
 	halo.AddShutdownCallback(func() {
-		x.Shutdown(30 * time.Second)
+		x.Shutdown(60 * time.Second)
 	})
-	x.started = true
 	x.mtx.Unlock()
 	return x.httpServer.Serve(ln)
 }
@@ -94,9 +106,14 @@ func (x *Xin) Shutdown(timeout time.Duration) error {
 }
 
 // Recover 设置 panic 处理函数
-func (x *Xin) Recover(fn errs.RecoverHandle) *Xin {
+func (x *Xin) RecoverHandle(fn errs.RecoverHandle) *Xin {
 	x.recoverHandle = fn
 	return x
+}
+
+// Mux 获取路由
+func (x *Xin) Mux() *Mux {
+	return x.router
 }
 
 // Use 添加全局中间件
@@ -106,23 +123,16 @@ func (x *Xin) Use(middlewares ...HTTPMiddleware) *Xin {
 	return x
 }
 
-// Mux 获取路由复用器
-func (x *Xin) Mux() *Mux {
-	return x.router
-}
-
-// Router 注册路由处理函数
-// fn 是一个接收路由复用器的函数，用于配置路由规则
-func (x *Xin) Router(fn func(r *Mux)) *Xin {
-	fn(x.router)
-	return x
+// Group 注册路由组
+func (x *Xin) Group(prefix string) *Mux {
+	return x.router.Group(prefix)
 }
 
 // Handle 注册一个处理特定模式的HTTP处理器
 // pattern 格式为 "[METHOD ][HOST]/[PATH]"
 // handler 为实现了http.Handler接口的处理器
 func (x *Xin) Handle(pattern string, handler http.Handler) *Xin {
-	x.router.Handle(pattern+"/", http.StripPrefix(pattern, handler))
+	x.router.Handle(pattern, handler)
 	return x
 }
 
@@ -201,9 +211,11 @@ func (x *Xin) StaticFS(pattern string, fs fs.FS) *Xin {
 	return x
 }
 
+// HostPort 获取服务器地址和端口
+func (x *Xin) HostPort() (host string, port int) {
+	return x.host, x.port
+}
+
 func (x *Xin) defaultRecoverHandle(err any, stack *errs.Stack) {
 	log.Printf("panic: %s %+v\r\n", err, stack)
 }
-
-// Map is a map of string to any.
-type Map map[string]any

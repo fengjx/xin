@@ -9,7 +9,6 @@ xin 是一个轻量级的 Go Web 框架，专注于简单性和性能。它基�
 - 简单直观的路由系统
 - 丰富的中间件支持
 - 支持静态文件服务
-- 优雅停机
 
 ## 版本要求
 
@@ -41,7 +40,7 @@ func main() {
 		xin.WriteString(w, http.StatusOK, "Hello World!")
 	})
 	log.Println("Server starting on :8080...")
-	app.Run(":8080")
+	app.Run(":8080", true)
 }
 
 ```
@@ -83,6 +82,11 @@ app.Sub("/api", func(r *xin.Mux) {
 	r.GET("/users", handleUsers)
 	r.POST("/users", createUser)
 })
+
+g := app.Group("/api/v1")
+g.HandleFunc("GET /foo", func(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "foo v1")
+})
 ```
 
 ### 静态文件服务
@@ -93,6 +97,54 @@ app.Static("/static", "./static")
 
 // 自定义文件系统
 app.StaticFS("/assets", myCustomFS)
+```
+
+
+## 请求参数处理
+
+### 参数绑定
+```go
+// 绑定 URL 参数和表单数据到结构体
+type UserForm struct {
+    Name  string `json:"name" binding:"required"`
+    Email string `json:"email" binding:"required,email"`
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
+    var form UserForm
+    if err := xin.ShouldBind(r, &form); err != nil {
+        // 处理错误
+        return
+    }
+}
+
+// 绑定 JSON 数据到结构体
+func jsonHandler(w http.ResponseWriter, r *http.Request) {
+    var user UserForm
+    if err := xin.ShouldBindJSON(r, &user); err != nil {
+        // 处理错误
+        return
+    }
+}
+```
+
+### 获取请求参数
+```go
+// 获取查询参数
+name := xin.GetQuery(r, "name")                    // 如果不存在返回空字符串
+page := xin.GetQueryDefault(r, "page", "1")        // 如果不存在返回默认值
+
+// 获取表单参数
+email := xin.GetForm(r, "email")                   // 如果不存在返回空字符串
+role := xin.GetFormDefault(r, "role", "user")      // 如果不存在返回默认值
+
+// 获取请求头
+token := xin.GetHeader(r, "Authorization")         // 如果不存在返回空字符串
+lang := xin.GetHeaderDefault(r, "Accept-Language", "en-US") // 如果不存在返回默认值
+
+// 获取 Cookie
+sessionID, err := xin.GetCookie(r, "session_id")   // 如果不存在返回错误
+userID := xin.GetCookieDefault(r, "user_id", "")   // 如果不存在返回默认值
 ```
 
 ## 中间件
@@ -130,34 +182,6 @@ func MyMiddleware(next http.Handler) http.Handler {
 app.Use(MyMiddleware)
 ```
 
-## 日志系统
-
-```go
-// 使用默认日志
-xin.LogInfo("Server started")
-xin.LogError("Failed to connect")
-
-// 开启调试日志
-logger := xin.GetLogger().(*xin.stdLogger)
-logger.SetDebug(true)
-xin.LogDebug("Debug message")
-
-// 自定义日志输出
-customLogger := xin.NewCustomLogger(os.Stdout, os.Stdout, os.Stderr)
-xin.SetLogger(customLogger)
-```
-
-## 优雅关闭
-
-```go
-app := xin.New()
-
-// 设置关闭超时
-if err := app.Shutdown(30 * time.Second); err != nil {
-	log.Printf("server shutdown error: %v", err)
-}
-```
-
 ## 错误处理
 
 ```go
@@ -190,16 +214,6 @@ if err := xin.CtxRequestErr(r); err != nil {
 
 - 轻量级设计，基于 `net/http` 标准库
 - 支持中间件链和子路由模式
-
-## 贡献
-
-欢迎提交 Pull Request 或创建 Issue。在提交之前，请：
-
-1. Fork 本仓库
-2. 创建你的特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交你的修改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启一个 Pull Request
 
 ## 许可
 

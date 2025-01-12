@@ -39,13 +39,13 @@ func (mux *Mux) Use(middlewares ...HTTPMiddleware) *Mux {
 	return mux
 }
 
-// Sub 注册子路由
-func (mux *Mux) Sub(prefix string, fn func(sub *Mux)) {
-	sub := NewMux()
-	fn(sub)
+// Group 注册路由组
+func (mux *Mux) Group(prefix string) *Mux {
+	group := NewMux()
 	// 确保不以 / 结尾
 	prefix = strings.TrimSuffix(prefix, "/")
-	mux.Handle(prefix+"/", http.StripPrefix(prefix, sub))
+	mux.Handle(prefix+"/", http.StripPrefix(prefix, group))
+	return group
 }
 
 func (mux *Mux) then(h http.Handler) {
