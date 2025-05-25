@@ -39,24 +39,25 @@ func GetRealIP(r *http.Request) string {
 }
 
 // Write 写入响应内容
-func Write(w http.ResponseWriter, code int, contentType string, message any) error {
+func Write(w http.ResponseWriter, code int, contentType string, message string) error {
 	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(code)
-	return json.NewEncoder(w).Encode(message)
+	_, err := w.Write([]byte(message))
+	return err
 }
 
 // WriteString 写入响应
-func WriteString(w http.ResponseWriter, code int, message any) error {
+func WriteString(w http.ResponseWriter, code int, message string) error {
 	return Write(w, code, "text/plain", message)
 }
 
 // WriteJSON 写入JSON响应
 func WriteJSON(w http.ResponseWriter, code int, data any) error {
-	jsonData, err := json.ToJson(data)
+	str, err := json.ToJson(data)
 	if err != nil {
 		return err
 	}
-	return Write(w, code, "application/json", jsonData)
+	return Write(w, code, "application/json", str)
 }
 
 // WriteNoContent 只返回响应码，不返回内容

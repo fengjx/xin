@@ -48,6 +48,14 @@ func (mux *Mux) Group(prefix string) *Mux {
 	return group
 }
 
+// GroupHandler 指定 handler 注册路由组
+func (mux *Mux) GroupHandler(prefix string, h http.Handler) *Mux {
+	// 确保不以 / 结尾
+	prefix = strings.TrimSuffix(prefix, "/")
+	mux.Handle(prefix+"/", http.StripPrefix(prefix, h))
+	return mux
+}
+
 func (mux *Mux) then(h http.Handler) {
 	mux.handler = HandlerChain(h, mux.middlewares...)
 }
