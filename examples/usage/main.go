@@ -65,7 +65,7 @@ func main() {
 	})
 
 	// 提供静态文件服务
-	app.Static("/static", "./public")
+	app.Static("/static/", "examples/usage/public")
 
 	// 开启 pprof，使用basic认证，用户名和密码为foo/bar
 	app.Handle(pprof.DefaultPrefix, pprof.Profiler(map[string]string{

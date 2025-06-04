@@ -3,7 +3,6 @@ package xin
 import (
 	"context"
 	"fmt"
-	"io/fs"
 	"log"
 	"net"
 	"net/http"
@@ -206,7 +205,7 @@ func (x *Xin) Static(pattern string, root string) *Xin {
 // StaticFS 注册自定义文件系统的静态文件服务
 // pattern 为URL匹配模式
 // fs 为实现了fs.FS接口的文件系统
-func (x *Xin) StaticFS(pattern string, fs fs.FS) *Xin {
+func (x *Xin) StaticFS(pattern string, fs http.FileSystem) *Xin {
 	x.router.StaticFS(pattern, fs)
 	return x
 }

@@ -2,7 +2,6 @@ package xin
 
 import (
 	"fmt"
-	"io/fs"
 	"net/http"
 	"strings"
 
@@ -133,15 +132,16 @@ func (mux *Mux) Static(pattern string, root string) *Mux {
 }
 
 // StaticFS 注册静态文件服务，自定义文件系统
-// fs 可以使用 luchen.Dir() 创建
-func (mux *Mux) StaticFS(pattern string, fs fs.FS) *Mux {
+// fs 可以使用 xin.Dir() 创建
+func (mux *Mux) StaticFS(pattern string, fs http.FileSystem) *Mux {
 	prefix := pattern
 	// 处理 [METHOD /path] 格式
 	arr := strings.Fields(pattern)
 	if len(arr) > 1 {
 		prefix = arr[1]
 	}
-	mux.ServeMux.Handle(pattern, FileHandler(prefix, fs))
+	fileServer := http.StripPrefix(prefix, http.FileServer(fs))
+	mux.ServeMux.Handle(pattern, fileServer)
 	return mux
 }
 
