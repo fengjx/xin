@@ -3,7 +3,6 @@ package xin
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/fengjx/go-halo/addr"
-	"github.com/fengjx/go-halo/errs"
 	"github.com/fengjx/go-halo/halo"
 )
 
@@ -23,21 +21,19 @@ func SetDebug(debug bool) {
 
 // Xin 是核心Web服务器结构体，用于管理HTTP路由和服务器操作
 type Xin struct {
-	mtx           sync.Mutex         // 用于并发安全的读写锁
-	httpServer    *http.Server       // HTTP服务器实例
-	router        *Mux               // 路由复用器
-	host          string             // 服务器主机地址
-	port          int                // 服务器端口
-	middlewares   []HTTPMiddleware   // 中间件
-	recoverHandle errs.RecoverHandle // panic 处理函数
-	started       bool               // 是否已关闭
+	mtx         sync.Mutex       // 用于并发安全的读写锁
+	httpServer  *http.Server     // HTTP服务器实例
+	router      *Mux             // 路由复用器
+	host        string           // 服务器主机地址
+	port        int              // 服务器端口
+	middlewares []HTTPMiddleware // 中间件
+	started     bool             // 是否已关闭
 }
 
 // New 创建一个新的Xin实例
 func New() *Xin {
 	x := &Xin{}
 	x.router = NewMux()
-	x.recoverHandle = x.defaultRecoverHandle
 	return x
 }
 
@@ -46,8 +42,6 @@ func (x *Xin) init() {
 		Handler: x.router,
 	}
 	x.httpServer = httpServer
-	// recover 中间件
-	x.router.Use(recoverer(x.recoverHandle))
 	// 添加中间件
 	x.router.Use(x.middlewares...)
 }
@@ -102,12 +96,6 @@ func (x *Xin) Shutdown(timeout time.Duration) error {
 		return fmt.Errorf("shutdown error: %w", err)
 	}
 	return nil
-}
-
-// Recover 设置 panic 处理函数
-func (x *Xin) RecoverHandle(fn errs.RecoverHandle) *Xin {
-	x.recoverHandle = fn
-	return x
 }
 
 // Mux 获取路由
@@ -213,8 +201,4 @@ func (x *Xin) StaticFS(pattern string, fs http.FileSystem) *Xin {
 // HostPort 获取服务器地址和端口
 func (x *Xin) HostPort() (host string, port int) {
 	return x.host, x.port
-}
-
-func (x *Xin) defaultRecoverHandle(err any, stack *errs.Stack) {
-	log.Printf("panic: %s %+v\r\n", err, stack)
 }

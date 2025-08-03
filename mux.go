@@ -33,6 +33,9 @@ func NewMux() *Mux {
 
 // Use 注册中间件
 func (mux *Mux) Use(middlewares ...HTTPMiddleware) *Mux {
+	if len(middlewares) == 0 {
+		return mux
+	}
 	mux.middlewares = append(mux.middlewares, middlewares...)
 	mux.then(mux.ServeMux)
 	return mux
